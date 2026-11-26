@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tabla Periódica Interactiva</title>
+<meta name="description" content="Tabla periódica interactiva con los 118 elementos: busca, filtra por categoría y consulta el detalle de cada elemento.">
+<style>
+*{box-sizing:border-box}
+:root{--bg:#0f172a;--card:#1e293b;--text:#f1f5f9;--muted:#94a3b8;--line:#334155}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{max-width:1280px;margin:0 auto;padding:28px 20px 10px}
+h1{margin:0 0 8px;font-size:clamp(28px,4vw,44px);letter-spacing:-.02em}
+p.sub{margin:0;color:var(--muted);font-size:17px;line-height:1.5}
+.controls{max-width:1280px;margin:18px auto 0;padding:0 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.controls input{flex:1;min-width:240px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#020617;color:var(--text);font-size:16px}
+.controls input::placeholder{color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:8px}
+button.chip{padding:9px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;font-size:14px}
+button.chip.active{background:#fff;color:#0f172a;border-color:#fff;font-weight:700}
+button.chip .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+main{max-width:1280px;margin:0 auto;padding:16px 20px 32px}
+.grid{display:grid;grid-template-columns:repeat(18,minmax(0,1fr));gap:6px;margin-top:14px}
+.cell{border-radius:10px;padding:7px 5px 6px;min-height:64px;cursor:pointer;border:1px solid rgba(255,255,255,.18);text-align:center;transition:transform .12s,outline .12s;overflow:hidden}
+.cell:hover{transform:translateY(-2px);outline:2px solid #fff}
+.cell.dim{opacity:.18}
+.cell.selected{outline:3px solid #fff;transform:scale(1.06)}
+.cell .num{font-size:11px;opacity:.85;display:block;line-height:1}
+.cell .sym{font-size:18px;font-weight:800;display:block;line-height:1.15}
+.cell .name{font-size:10px;line-height:1.1;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .mass{font-size:10px;opacity:.85;display:block}
+.placeholder{background:transparent;border:1px dashed var(--line);color:var(--muted);cursor:default}
+.placeholder:hover{transform:none;outline:none}
+.cat-no-metal{background:#0ea5e9}.cat-alcalino{background:#ef4444}.cat-alcalinoterreo{background:#f97316}.cat-transicion{background:#eab308;color:#111}.cat-post{background:#22c55e}.cat-metaloide{background:#14b8a6}.cat-halogeno{background:#a855f7}.cat-gas{background:#64748b}.cat-lantanido{background:#ec4899}.cat-actinido{background:#f43f5e}
+.detail{margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;grid-template-columns:120px 1fr;gap:18px;align-items:start}
+.detail .big{border-radius:14px;padding:16px 10px;text-align:center;min-height:120px}
+.detail .big .sym{font-size:42px;font-weight:900}
+.detail h2{margin:0 0 6px;font-size:28px}
+.detail p{margin:6px 0;color:#e2e8f0;line-height:1.55}
+.detail .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.detail .meta span{background:#020617;border:1px solid var(--line);border-radius:999px;padding:6px 10px;font-size:13px}
+.count{color:var(--muted);font-size:14px;margin-top:12px}
+footer{max-width:1280px;margin:0 auto;padding:0 20px 32px;color:var(--muted);font-size:14px;line-height:1.6}
+@media(max-width:760px){.grid{gap:4px}.cell{min-height:52px;padding:5px 2px}.cell .sym{font-size:13px}.cell .name,.cell .mass{display:none}.detail{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+<h1>Tabla Periódica Interactiva</h1>
+<p class="sub">Los 118 elementos. Toca un elemento para ver su detalle, busca por nombre, símbolo o número, y filtra por categoría.</p>
+</header>
+<div class="controls">
+<input id="q" type="search" placeholder="Buscar: hidrógeno, Fe, 26…" aria-label="Buscar elemento">
+<div class="filters" id="filters"></div>
+</div>
+<main>
+<div class="grid" id="grid" aria-label="Tabla periódica"></div>
+<div class="count" id="count"></div>
+<section class="detail" id="detail" aria-live="polite"></section>
+</main>
+<footer>Datos: número atómico, símbolo, nombre en español y masa atómica aproximada. Las masas entre paréntesis son del isótopo más estable conocido. Hecha con HTML, CSS y JavaScript, sin dependencias.</footer>
+<script>
+const CATS={
+"no-metal":{label:"No metal",cls:"cat-no-metal"},
+"alcalino":{label:"Metal alcalino",cls:"cat-alcalino"},
+"alcalinoterreo":{label:"Alcalinotérreo",cls:"cat-alcalinoterreo"},
+"transicion":{label:"Metal de transición",cls:"cat-transicion"},
+"post":{label:"Metal post-transición",cls:"cat-post"},
+"metaloide":{label:"Metaloide",cls:"cat-metaloide"},
+"halogeno":{label:"Halógeno",cls:"cat-halogeno"},
+"gas":{label:"Gas noble",cls:"cat-gas"},
+"lantanido":{label:"Lantánido",cls:"cat-lantanido"},
+"actinido":{label:"Actínido",cls:"cat-actinido"}
+};
+const E=[
+[1,"H","Hidrógeno","1.008","no-metal",1,1],[2,"He","Helio","4.003","gas",18,1],
+[3,"Li","Litio","6.94","alcalino",1,2],[4,"Be","Berilio","9.012","alcalinoterreo",2,2],[5,"B","Boro","10.81","metaloide",13,2],[6,"C","Carbono","12.011","no-metal",14,2],[7,"N","Nitrógeno","14.007","no-metal",15,2],[8,"O","Oxígeno","15.999","no-metal",16,2],[9,"F","Flúor","18.998","halogeno",17,2],[10,"Ne","Neón","20.180","gas",18,2],
+[11,"Na","Sodio","22.990","alcalino",1,3],[12,"Mg","Magnesio","24.305","alcalinoterreo",2,3],[13,"Al","Aluminio","26.982","post",13,3],[14,"Si","Silicio","28.085","metaloide",14,3],[15,"P","Fósforo","30.974","no-metal",15,3],[16,"S","Azufre","32.06","no-metal",16,3],[17,"Cl","Cloro","35.45","halogeno",17,3],[18,"Ar","Argón","39.948","gas",18,3],
+[19,"K","Potasio","39.098","alcalino",1,4],[20,"Ca","Calcio","40.078","alcalinoterreo",2,4],[21,"Sc","Escandio","44.956","transicion",3,4],[22,"Ti","Titanio","47.867","transicion",4,4],[23,"V","Vanadio","50.942","transicion",5,4],[24,"Cr","Cromo","51.996","transicion",6,4],[25,"Mn","Manganeso","54.938","transicion",7,4],[26,"Fe","Hierro","55.845","transicion",8,4],[27,"Co","Cobalto","58.933","transicion",9,4],[28,"Ni","Níquel","58.693","transicion",10,4],[29,"Cu","Cobre","63.546","transicion",11,4],[30,"Zn","Zinc","65.38","transicion",12,4],[31,"Ga","Galio","69.723","post",13,4],[32,"Ge","Germanio","72.630","metaloide",14,4],[33,"As","Arsénico","74.922","metaloide",15,4],[34,"Se","Selenio","78.971","no-metal",16,4],[35,"Br","Bromo","79.904","halogeno",17,4],[36,"Kr","Kriptón","83.798","gas",18,4],
+[37,"Rb","Rubidio","85.468","alcalino",1,5],[38,"Sr","Estroncio","87.62","alcalinoterreo",2,5],[39,"Y","Itrio","88.906","transicion",3,5],[40,"Zr","Circonio","91.224","transicion",4,5],[41,"Nb","Niobio","92.906","transicion",5,5],[42,"Mo","Molibdeno","95.95","transicion",6,5],[43,"Tc","Tecnecio","(98)","transicion",7,5],[44,"Ru","Rutenio","101.07","transicion",8,5],[45,"Rh","Rodio","102.91","transicion",9,5],[46,"Pd","Paladio","106.42","transicion",10,5],[47,"Ag","Plata","107.87","transicion",11,5],[48,"Cd","Cadmio","112.41","transicion",12,5],[49,"In","Indio","114.82","post",13,5],[50,"Sn","Estaño","118.71","post",14,5],[51,"Sb","Antimonio","121.76","metaloide",15,5],[52,"Te","Telurio","127.60","metaloide",16,5],[53,"I","Yodo","126.90","halogeno",17,5],[54,"Xe","Xenón","131.29","gas",18,5],
+[55,"Cs","Cesio","132.91","alcalino",1,6],[56,"Ba","Bario","137.33","alcalinoterreo",2,6],[72,"Hf","Hafnio","178.49","transicion",4,6],[73,"Ta","Tántalo","180.95","transicion",5,6],[74,"W","Wolframio","183.84","transicion",6,6],[75,"Re","Renio","186.21","transicion",7,6],[76,"Os","Osmio","190.23","transicion",8,6],[77,"Ir","Iridio","192.22","transicion",9,6],[78,"Pt","Platino","195.08","transicion",10,6],[79,"Au","Oro","196.97","transicion",11,6],[80,"Hg","Mercurio","200.59","transicion",12,6],[81,"Tl","Talio","204.38","post",13,6],[82,"Pb","Plomo","207.2","post",14,6],[83,"Bi","Bismuto","208.98","post",15,6],[84,"Po","Polonio","(209)","post",16,6],[85,"At","Astato","(210)","halogeno",17,6],[86,"Rn","Radón","(222)","gas",18,6],
+[87,"Fr","Francio","(223)","alcalino",1,7],[88,"Ra","Radio","(226)","alcalinoterreo",2,7],[104,"Rf","Rutherfordio","(267)","transicion",4,7],[105,"Db","Dubnio","(268)","transicion",5,7],[106,"Sg","Seaborgio","(269)","transicion",6,7],[107,"Bh","Bohrio","(270)","transicion",7,7],[108,"Hs","Hasio","(277)","transicion",8,7],[109,"Mt","Meitnerio","(278)","transicion",9,7],[110,"Ds","Darmstadtio","(281)","transicion",10,7],[111,"Rg","Roentgenio","(282)","transicion",11,7],[112,"Cn","Copernicio","(285)","transicion",12,7],[113,"Nh","Nihonio","(286)","post",13,7],[114,"Fl","Flerovio","(289)","post",14,7],[115,"Mc","Moscovio","(290)","post",15,7],[116,"Lv","Livermorio","(293)","post",16,7],[117,"Ts","Teneso","(294)","halogeno",17,7],[118,"Og","Oganesón","(294)","gas",18,7],
+[57,"La","Lantano","138.91","lantanido",3,9],[58,"Ce","Cerio","140.12","lantanido",4,9],[59,"Pr","Praseodimio","140.91","lantanido",5,9],[60,"Nd","Neodimio","144.24","lantanido",6,9],[61,"Pm","Prometio","(145)","lantanido",7,9],[62,"Sm","Samario","150.36","lantanido",8,9],[63,"Eu","Europio","151.96","lantanido",9,9],[64,"Gd","Gadolinio","157.25","lantanido",10,9],[65,"Tb","Terbio","158.93","lantanido",11,9],[66,"Dy","Disprosio","162.50","lantanido",12,9],[67,"Ho","Holmio","164.93","lantanido",13,9],[68,"Er","Erbio","167.26","lantanido",14,9],[69,"Tm","Tulio","168.93","lantanido",15,9],[70,"Yb","Iterbio","173.05","lantanido",16,9],[71,"Lu","Lutecio","174.97","lantanido",17,9],
+[89,"Ac","Actinio","(227)","actinido",3,10],[90,"Th","Torio","232.04","actinido",4,10],[91,"Pa","Protactinio","231.04","actinido",5,10],[92,"U","Uranio","238.03","actinido",6,10],[93,"Np","Neptunio","(237)","actinido",7,10],[94,"Pu","Plutonio","(244)","actinido",8,10],[95,"Am","Americio","(243)","actinido",9,10],[96,"Cm","Curio","(247)","actinido",10,10],[97,"Bk","Berkelio","(247)","actinido",11,10],[98,"Cf","Californio","(251)","actinido",12,10],[99,"Es","Einstenio","(252)","actinido",13,10],[100,"Fm","Fermio","(257)","actinido",14,10],[101,"Md","Mendelevio","(258)","actinido",15,10],[102,"No","Nobelio","(259)","actinido",16,10],[103,"Lr","Lawrencio","(262)","actinido",17,10]
+];
+let activeCat="all", selected=26;
+const grid=document.getElementById("grid"), detail=document.getElementById("detail"), count=document.getElementById("count"), q=document.getElementById("q"), filters=document.getElementById("filters");
+function norm(s){return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")}
+function renderFilters(){
+ const all=document.createElement("button"); all.className="chip"+(activeCat==="all"?" active":""); all.textContent="Todas"; all.onclick=()=>{activeCat="all";render()}; filters.appendChild(all);
+ for(const [k,v] of Object.entries(CATS)){const b=document.createElement("button"); b.className="chip"+(activeCat===k?" active":""); b.innerHTML=`<span class="dot ${v.cls}"></span>${v.label}`; b.onclick=()=>{activeCat=k;render()}; filters.appendChild(b)}
+}
+function show(el){
+ const [n,sym,name,mass,cat,x,y]=el; const c=CATS[cat];
+ const periodo = y<=7 ? y : (y===9 ? 6 : 7);
+ const grupo = (y===9||y===10) ? "— (serie f)" : x;
+ detail.innerHTML=`<div class="big ${c.cls}"><span class="num">${n}</span><div class="sym">${sym}</div><div>${name}</div></div><div><h2>${name} (${sym})</h2><p>Elemento número ${n} de la tabla periódica. Su masa atómica aproximada es <strong>${mass}</strong>.</p><div class="meta"><span>Categoría: ${c.label}</span><span>Grupo: ${grupo}</span><span>Periodo: ${periodo}</span><span>Masa atómica: ${mass}</span></div><p style="color:#94a3b8">Toca otro elemento en la tabla para comparar, o usa el buscador y los filtros de arriba.</p></div>`;
+}
+function render(){
+ grid.innerHTML=""; filters.innerHTML=""; renderFilters();
+ const query=norm(q.value.trim());
+ let visible=0;
+ // placeholders 57-71 y 89-103
+ const ph=[[3,6,"57–71"],[3,7,"89–103"]];
+ for(const [px,py,label] of ph){const d=document.createElement("div"); d.className="cell placeholder"; d.style.gridColumn=px; d.style.gridRow=py; d.innerHTML=`<span class="sym" style="font-size:13px">${label}</span><span class="name">lantánidos / actínidos abajo</span>`; grid.appendChild(d)}
+ for(const el of E){
+  const [n,sym,name,mass,cat,x,y]=el; const c=CATS[cat];
+  const matchesQ=!query || norm(name).includes(query) || norm(sym).includes(query) || String(n)===query;
+  const matchesC=activeCat==="all" || activeCat===cat;
+  if(matchesQ && matchesC) visible++;
+  const d=document.createElement("button"); d.type="button"; d.className=`cell ${c.cls}`+(selected===n?" selected":"")+((!matchesQ||!matchesC)?" dim":"");
+  d.style.gridColumn=x; d.style.gridRow=y;
+  d.innerHTML=`<span class="num">${n}</span><span class="sym">${sym}</span><span class="name">${name}</span><span class="mass">${mass}</span>`;
+  d.setAttribute("aria-label",`${name}, símbolo ${sym}, número atómico ${n}`);
+  d.onclick=()=>{selected=n; show(el); render()};
+  grid.appendChild(d);
+ }
+ count.textContent = query||activeCat!=="all" ? `Mostrando ${visible} de 118 elementos.` : `118 elementos. Toca uno para ver su detalle.`;
+ const sel=E.find(e=>e[0]===selected); if(sel) show(sel);
+}
+q.addEventListener("input",render);
+render();
+</script>
+</body>
+</html>
